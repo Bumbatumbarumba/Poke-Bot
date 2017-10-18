@@ -13,6 +13,7 @@ import asyncio;
 import urllib.request;
 import re;
 from random import *;
+from bs4 import BeautifulSoup;
 
 #=-=-=Global vars and whatnot=-=-=
 client = discord.Client();
@@ -28,6 +29,7 @@ async def on_ready():
 #Checks the message for a specific string (ie, that the bot is being called)
 @client.event
 async def on_message(message):
+	botmessage = "";
 	#to do
 	if message.content.startswith("!pokebot"):
 		#Strips the message to be the pokemon's name, and then opens the allpokemon file
@@ -42,61 +44,56 @@ async def on_message(message):
 			#if the name is in the list, we grab it's number, otherwise we tell the user we couldn't find it
 			if pokemon_name == (name_num[0]):
 				pokemon_num = int(name_num[1][:3]);
+				botmessage += "Name: " + name_num[0].title() + "\n" + "National number: " + name_num[1] + "\n";
 				strnum = name_num[1][:3];
-				await client.send_message(message.channel, pokemon_name + ": " + str(pokemon_num));
 				break;
 		if pokemon_num == -1:
 			await client.send_message(message.channel, "Sorry, " + pokemon_name + " was not found in the pokedex, maybe you spelled it incorrectly?");
 		
 		#This is the link based on how serebii.net is set up
 		link = "https://www.serebii.net/pokedex-sm/" + strnum + ".shtml";
-		#Since urllib doesn't produce an object, but a module instead, we have to do this work-around
-		#in order to get our object that we can iterate through.
-		request = urllib.request.Request(link);
-		opener = urllib.request.build_opener();
-		response = opener.open(request);
-		
-		#Next we iterate through the lines of html and find the first instance of "Base Stats - Total: "
-		#This is because the 6 lines after contain each stat in order of hp, atk, def, spatk, spdef, and speed.
-		#For sake of simplicity, we toss it all into a list to easier shaving later.
-		for line in response:
-			if "Base Stats - Total: " in line:
-				#Grabs all of the lines that we need, we'll shave off the bs afterwards
-				rawStats = [response[response.index(line)+1],response[response.index(line)+2],response[response.index(line)+3],response[response.index(line)+4],response[response.index(line)+5],response[response.index(line)+6]];
-				break;
-		#Now we shave off the bs
-		for stats in rawStats:
-			stats = re.split("(<+|>+)",stats);
-
-
 		"""
-		THINGS TO LOOK FOR IN A PAGE:
-		<option value="/pokedex-sm/NUMBER HERE.shtml">POKEMON NAME HERE</option>
-		--> or we can just format the user's input since it has to be correct anyways 
-		--> SAME THING WITH THE NUMBER
-
-		STATS:
-		--> so the stats are formatted retardedly cuz what is good css and html
-			<td align="center" class="fooevo">HP</td>
-			<td align="center" class="fooevo">Attack</td>
-			<td align="center" class="fooevo">Defense</td>
-			<td align="center" class="fooevo">Sp. Attack</td>
-			<td align="center" class="fooevo">Sp. Defense</td>
-			<td align="center" class="fooevo">Speed</td></tr>
-		CORRESPONDS TO:
-			<td align="center" class="fooinfo">105</td>
-			<td align="center" class="fooinfo">150</td>
-			<td align="center" class="fooinfo">90</td>
-			<td align="center" class="fooinfo">150</td>
-			<td align="center" class="fooinfo">90</td>
-			<td align="center" class="fooinfo">95</td></tr>
-		----> FIND THE FIRST INSTANCE OF "Base Stats - Total: "
-			--> STORE THE THE FIRST SIX LINES AFTER THAT
-			--> SPLIT THEM ON < AND >
-			--> GRAB THE THIRD ELEMENT OF EACH RESULTING LIST (will be the base stats at lvl 100)
-		FINDING THE TYPE OF THE POKEMON IS ACTUALLY AIDS CUZ WHAT IS GOOD CSS AND HTML????
-		--> excellent work around: post the link as well
+		We try to connect to the site (probably poorly worded but I dunno enough about
+		networks and whatnot to validate it), and catch+print the error if the url is
+		incorrect.
 		"""
+		try:
+			response = urllib.request.urlopen(link);
+		except urllib.error.URLError as e:
+			print(e.reason);
+		else:
+			#If successful, we read the html in the page
+			html = response.read();
+			
+			#================
+			#This block is to check the encoding of the page so we can convert it to a string
+			soup = BeautifulSoup(html, "html.parser");
+			decoded_page = html.decode(str(soup.original_encoding));
+			#================
+			
+			pagesplit = decoded_page.split("\n");
+			#Filters out the empty strings that get generated (ie, "")
+			pagesplit = list(filter(None, pagesplit));
+
+			#THIS SECTION GRABS ALL OF THE STATS FOR THE POKEMON
+			#Finds the first instance of "Base Stats - Total:" since the lines after contain the stats
+			for l in pagesplit:
+				if "Base Stats - Total:" in l:
+					statline = pagesplit.index(l);
+					#We use this to create a list containing the stats, but are surrounded by html junk
+					rawstats = [pagesplit[statline+1],pagesplit[statline+2],pagesplit[statline+3],pagesplit[statline+4],pagesplit[statline+5],pagesplit[statline+6]];
+					break;
+			#Shaves off the bs and leaves only the stats as a list of strings
+			stats = [];
+			for s in rawstats:
+				s = re.split("(<+|>+)",s);
+				stats.append(s[4]);
+			
+			botmessage += "---STATS---\n" + "HP: " + stats[0] + "\n" + "Attack: " + stats[1] + "\n" + "Defense: " + stats[2] + "\n" + "Sp. attack: " + stats[3] + "\n" + "Sp. defense: " + stats[4] + "\n" + "Speed: " + stats[5] + "\n";
+			botmessage += "\nFor more info visit: " + link;
+
+			#Sends the message with info in it
+			await client.send_message(message.channel, botmessage);
 
 	#Type @Poke-Bot to get a quick blurb of info about the bot
 	if message.content.startswith("<@369661689723092992>"):
