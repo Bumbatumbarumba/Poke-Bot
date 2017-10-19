@@ -12,8 +12,10 @@ import discord;
 import asyncio;
 import urllib.request;
 import re;
-from random import *;
 from bs4 import BeautifulSoup;
+import requests;
+import io;
+from PIL import Image;
 
 #=-=-=Global vars and whatnot=-=-=
 client = discord.Client();
@@ -92,7 +94,13 @@ async def on_message(message):
 			botmessage += "---STATS---\n" + "HP: " + stats[0] + "\n" + "Attack: " + stats[1] + "\n" + "Defense: " + stats[2] + "\n" + "Sp. attack: " + stats[3] + "\n" + "Sp. defense: " + stats[4] + "\n" + "Speed: " + stats[5] + "\n";
 			botmessage += "\nFor more info visit: " + link;
 
-			#Sends the message with info in it
+			#Grabs an image of the pokemon off of serebii as well and stores it in temp.jpg
+			with urllib.request.urlopen("https://www.serebii.net/sunmoon/pokemon/" + strnum + ".png") as url:
+			    with open('images/temp.jpg', 'wb') as f:
+			        f.write(url.read())
+
+			#Sends the message with info and image in it
+			await client.send_file(message.channel, "images/temp.jpg");
 			await client.send_message(message.channel, botmessage);
 
 	#Type @Poke-Bot to get a quick blurb of info about the bot
