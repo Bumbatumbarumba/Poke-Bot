@@ -107,4 +107,4 @@ async def on_message(message):
 	if message.content.startswith("<@369661689723092992>"):
 		await client.send_message(message.channel, "Created by Bartosz Kosakowski. Type !pokebot <pokemon name> to retrieve data about a pokemon!");
 
-client.run('MzY5NjYxNjg5NzIzMDkyOTky.DMbx6A.7V7YXFh5MEdEON2q29CCk8FoKEw');
+client.run('SECRET');
